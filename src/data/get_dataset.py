@@ -23,8 +23,6 @@ RANDOM_SEED = int(os.getenv('RANDOM_SEED'))
 TRAIN_BATCH_SIZE = int(os.getenv('TRAIN_BATCH_SIZE'))
 
 np.random.seed(RANDOM_SEED)
-
-
 # endregion
 
 
@@ -174,5 +172,5 @@ def get_test_loader(data_dir: str,
 
 
 if __name__ == '__main__':
-    # run this script before
+    # run this script to download the data
     get_cifar_10(download=True)
