@@ -81,8 +81,3 @@ class VGG16(nn.Module):
                 in_channels = layer
         return nn.Sequential(*layers)
 
-
-if __name__ == '__main__':
-    x = torch.rand((2, 3, 32, 32))
-    vggmodel = VGG16(num_classes=10, pretrained=True)
-    y = vggmodel(x)
