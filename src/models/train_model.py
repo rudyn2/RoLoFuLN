@@ -5,7 +5,8 @@ import torchvision.models as models
 import torch.nn as nn
 import torch
 from torch.utils.tensorboard import SummaryWriter
-from src.data.ds_handler import DatasetHandler, FashionMnistHandler
+from src.data.ds_handler import FashionMnistHandler
+from torch.utils.data import DataLoader
 
 load_dotenv(find_dotenv())
 PROJECT_DIR = os.getenv('PROJECT_DIR')
@@ -19,33 +20,41 @@ class Solver:
                  model: nn.Module,
                  optimizer,
                  loss,
-                 dataset_handler: DatasetHandler,
+                 train_loader: DataLoader,
+                 val_loader: DataLoader,
+                 test_loader: DataLoader,
                  gpu: bool = False):
 
         self.name = name
         self.model = model
         self.optimizer = optimizer
         self.loss = loss
-        self.dataset_handler: DatasetHandler = dataset_handler
+        self.train_loader: DataLoader = train_loader
+        self.val_loader: DataLoader = val_loader
+        self.test_loader: DataLoader = test_loader
         self.gpu = gpu
         self.summary = SummaryWriter(f"{PROJECT_DIR}/data")
 
     def train(self, epochs: int, verbose: bool = False):
+        """
+        Generic training procedure.
+
+        :param epochs:
+        :param verbose:
+        :return:
+        """
 
         if self.gpu:
             self.model.cuda()
 
         self.model.train()
-        train_loader, val_loader, _ = self.dataset_handler.get_loaders(batch_size=32,
-                                                                       val_size=0.2,
-                                                                       shuffle=True)
+
         for epoch in range(epochs):
 
             train_loss, n_correct, total_items = 0.0, 0.0, 0.0
 
-            for i, data in enumerate(train_loader, 0):
+            for i, data in enumerate(self.train_loader, 0):
                 inputs, labels = data
-                inputs = torch.flatten(inputs, start_dim=1)
 
                 if self.gpu:
                     inputs = inputs.cuda()
@@ -54,7 +63,7 @@ class Solver:
                 loss, outputs = self._optimizer_step(inputs, labels)
 
                 # Getting the avg loss
-                train_loss += loss.item() / len(train_loader)
+                train_loss += loss.item() / len(self.train_loader)
 
                 # calculating accuracy
                 batch_correct = (outputs.argmax(dim=1) == labels).float().sum()
@@ -63,7 +72,7 @@ class Solver:
 
             # reports
             train_acc = 100 * n_correct / total_items
-            val_loss, val_acc = self._get_validation_results(val_loader)
+            val_loss, val_acc = self._get_validation_results()
 
             self.summary.add_scalars(f'run_{self.name}',
                                      {
@@ -79,6 +88,13 @@ class Solver:
                       f"|| Val avg. acc: {val_acc:.4f}")
 
     def _optimizer_step(self, inputs, labels):
+        """
+        Does one optimization step. Forward -> backward -> update.
+
+        :param inputs:                  Inputs as Torch tensor.
+        :param labels:                  Labels as Torch tensor.
+        :return:                        Loss and outputs.
+        """
 
         # Optimization step
         self.optimizer.zero_grad()
@@ -88,7 +104,7 @@ class Solver:
         self.optimizer.step()
         return loss, outputs
 
-    def _get_validation_results(self, data_loader):
+    def _get_validation_results(self):
         """
         Returns the average loss, and accuracy of the input model evaluated
         in the data loader using the criterion.
@@ -99,7 +115,7 @@ class Solver:
         val_loss, correct = 0, 0
 
         with torch.no_grad():
-            for data, target in data_loader:
+            for data, target in self.val_loader:
                 data = torch.flatten(data, start_dim=1)
 
                 if self.gpu:
@@ -107,19 +123,19 @@ class Solver:
                     target = target.cuda()
 
                 outputs = self.model(data)
-                val_loss += self.loss(outputs, target).item() / len(data_loader)
+                val_loss += self.loss(outputs, target).item() / len(self.val_loader)
                 correct += (outputs.argmax(dim=1) == target).float().sum()
 
-        val_acc = 100. * correct / len(data_loader.dataset)
+        val_acc = 100. * correct / len(self.val_loader.dataset)
         return val_loss, val_acc
 
 
 if __name__ == '__main__':
     data_dir = f'{PROJECT_DIR}/src/data/data'
     dataset = FashionMnistHandler(data_dir, False)
-    dataset.load()
+    train_loader, val_loader, test_loader = dataset.get_noisy_loaders(p_noise=0.5, type_noise='1', val_size=0.2)
     resnet = models.resnet34(pretrained=False, progress=False)
     optimizer = torch.optim.Adam(resnet.parameters())
     criterion = nn.CrossEntropyLoss()
-    solver = Solver('test', resnet, optimizer, criterion, dataset)
+    solver = Solver('test', resnet, optimizer, criterion, train_loader, val_loader, test_loader)
     solver.train(2, True)

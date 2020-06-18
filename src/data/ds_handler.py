@@ -5,6 +5,7 @@ from abc import abstractmethod
 import numpy as np
 import torch
 import torchvision.transforms as transforms
+from torchvision.datasets import FashionMNIST
 from dotenv import find_dotenv, load_dotenv
 from torch.utils.data.sampler import SubsetRandomSampler
 from torchvision import datasets
@@ -110,7 +111,7 @@ class DatasetHandler:
 
         return train_sampler, valid_sampler
 
-    def get_loaders(self, batch_size: int, val_size: float = 0, shuffle: bool = False):
+    def get_loaders(self, val_size: float = 0, shuffle: bool = False):
 
         train_sampler, valid_sampler = self._split(val_size, shuffle)
 
@@ -178,19 +179,92 @@ class Cifar10Handler(DatasetHandler):
 
 class FashionMnistHandler(DatasetHandler):
 
+    clothes_labels = []
+
     def __init__(self, data_dir: str, augment: bool = True):
         super(FashionMnistHandler, self).__init__(datasets.FashionMNIST, data_dir, augment)
 
-    @property
+        self.train_transform = transforms.Compose([transforms.ToTensor()])
+        self.valid_transform = transforms.Compose([transforms.ToTensor()])
+        self.test_transform = transforms.Compose([transforms.ToTensor()])
+
     def train_transform(self) -> transforms.Compose:
-        return transforms.Compose([])
+        return self.train_transform
 
-    @property
     def valid_transform(self):
-        return transforms.Compose([])
+        return self.valid_transform
 
-    @property
     def test_transform(self) -> transforms.Compose:
-        # define transform
-        return transforms.Compose([])
+        return self.test_transform
 
+    def get_noisy_loaders(self, p_noise: float, type_noise: str, val_size: float):
+        """
+        Adds labels noise to Fashion Mnist Dataset.
+
+        :param val_size:
+            Relative size of validation dataset.
+        :param p_noise:
+            probability of apply some kind of noise.
+        :param type_noise:
+            1: with probability r, a true label is substituted by a random label through uniform sampling.
+            2: with probability r, bags → clothes
+            3: with probability r, clothes → bags
+
+        :return:
+            noisy data loaders
+        """
+
+        if type_noise not in ['1', '2', '3']:
+            raise ValueError(f"Expected type of noise: 1, 2, 3. Actual type of noise: {type_noise}")
+
+        if p_noise > 1 or p_noise < 0:
+            raise ValueError(f"Probability of apply noise must be between 0 and 1.")
+
+        if self.train_dataset is None or self.valid_dataset is None:
+            self.load()
+
+        if type_noise == '1':
+            self.train_dataset = self.dataset(root=self.data_dir,
+                                              train=True,
+                                              download=False,
+                                              transform=self.train_transform,
+                                              target_transform=Noise(p_noise,
+                                                                     possible_labels=list(range(10)),
+                                                                     check_label=list(range(10))))
+        elif type_noise == '2':
+            self.train_dataset = self.dataset(root=self.data_dir,
+                                              train=True,
+                                              download=False,
+                                              transform=self.train_transform,
+                                              target_transform=Noise(p_noise,
+                                                                     possible_labels=[0, 1, 2, 3, 4, 6],
+                                                                     check_label=[8]))
+        else:
+            self.train_dataset = self.dataset(root=self.data_dir,
+                                              train=True,
+                                              download=False,
+                                              transform=self.train_transform,
+                                              target_transform=Noise(p_noise,
+                                                                     possible_labels=[8],
+                                                                     check_label=[0, 1, 2, 3, 4, 6]))
+        return self.get_loaders(val_size=val_size)
+
+
+class Noise(object):
+    def __init__(self, p_noise: float, possible_labels: list, check_label: list):
+        self.p_noise = p_noise
+        self.possible_labels = possible_labels
+        self.check_label = check_label
+
+    def __call__(self, label):
+        if label in self.check_label and np.random.rand() < self.p_noise:
+            return label
+        return self.possible_labels[np.random.randint(0, len(self.possible_labels))]
+
+
+if __name__ == '__main__':
+    ds = FashionMnistHandler(data_dir='/Users/rudy/PycharmProjects/RoLoFuLN/src/data/data',
+                             augment=False)
+    train, _, _ = ds.get_noisy_loaders(p_noise=0.5, type_noise='1', val_size=0.2)
+    for inputs, target in train:
+        print(f"batch size: {len(inputs)}")
