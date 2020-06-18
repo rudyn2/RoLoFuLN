@@ -117,12 +117,12 @@ class DatasetHandler:
 
         train_loader = torch.utils.data.DataLoader(
             self.train_dataset, batch_size=TRAIN_BATCH_SIZE, sampler=train_sampler,
-            num_workers=4)
+            num_workers=2)
         valid_loader = torch.utils.data.DataLoader(
             self.valid_dataset, batch_size=VAL_BATCH_SIZE, sampler=valid_sampler,
-            num_workers=4)
+            num_workers=2)
         test_loader = torch.utils.data.DataLoader(
-            self.test_dataset, batch_size=TEST_BATCH_SIZE, num_workers=4)
+            self.test_dataset, batch_size=TEST_BATCH_SIZE, num_workers=2)
 
         return train_loader, valid_loader, test_loader
 

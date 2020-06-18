@@ -1,11 +1,11 @@
 import sys
 import os
 from dotenv import find_dotenv, load_dotenv
-import torchvision.models as models
 import torch.nn as nn
 import torch
 from torch.utils.tensorboard import SummaryWriter
 from src.data.ds_handler import FashionMnistHandler
+from src.models.simple_cnn import Network
 from torch.utils.data import DataLoader
 
 load_dotenv(find_dotenv())
@@ -22,8 +22,7 @@ class Solver:
                  loss,
                  train_loader: DataLoader,
                  val_loader: DataLoader,
-                 test_loader: DataLoader,
-                 gpu: bool = False):
+                 test_loader: DataLoader):
 
         self.name = name
         self.model = model
@@ -32,7 +31,7 @@ class Solver:
         self.train_loader: DataLoader = train_loader
         self.val_loader: DataLoader = val_loader
         self.test_loader: DataLoader = test_loader
-        self.gpu = gpu
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.summary = SummaryWriter(f"{PROJECT_DIR}/data")
 
     def train(self, epochs: int, verbose: bool = False):
@@ -44,9 +43,7 @@ class Solver:
         :return:
         """
 
-        if self.gpu:
-            self.model.cuda()
-
+        self.model.to(self.device)
         self.model.train()
 
         for epoch in range(epochs):
@@ -55,11 +52,10 @@ class Solver:
 
             for i, data in enumerate(self.train_loader, 0):
                 inputs, labels = data
+                inputs.to(self.device)
+                labels.to(self.device)
 
-                if self.gpu:
-                    inputs = inputs.cuda()
-                    labels = labels.cuda()
-
+                # optimization step
                 loss, outputs = self._optimizer_step(inputs, labels)
 
                 # Getting the avg loss
@@ -74,15 +70,12 @@ class Solver:
             train_acc = 100 * n_correct / total_items
             val_loss, val_acc = self._get_validation_results()
 
-            self.summary.add_scalars(f'run_{self.name}',
-                                     {
-                                         'accuracy/train': train_acc,
-                                         'accuracy/val': val_acc,
-                                         'loss/train': train_loss,
-                                         'loss/val': val_loss
-                                     })
+            self.summary.add_scalar('Loss/train', train_loss, epoch+1)
+            self.summary.add_scalar('Loss/val', val_loss, epoch+1)
+            self.summary.add_scalar('Accuracy/train', train_acc, epoch+1)
+            self.summary.add_scalar('Accuracy/val', val_acc, epoch+1)
 
-            if verbose and (epoch + 1) % 5 == 0:
+            if verbose and (epoch + 1) % 1 == 0:
                 print(f"Epoch: {epoch + 1} || Train avg loss: {train_loss:.4f} ||"
                       f"Train acc.: {train_acc:.3f} || Val avg. loss: {val_loss:.4f} "
                       f"|| Val avg. acc: {val_acc:.4f}")
@@ -115,14 +108,11 @@ class Solver:
         val_loss, correct = 0, 0
 
         with torch.no_grad():
-            for data, target in self.val_loader:
-                data = torch.flatten(data, start_dim=1)
+            for inputs, target in self.val_loader:
+                inputs.to(self.device)
+                target.to(self.device)
 
-                if self.gpu:
-                    data = data.cuda()
-                    target = target.cuda()
-
-                outputs = self.model(data)
+                outputs = self.model(inputs)
                 val_loss += self.loss(outputs, target).item() / len(self.val_loader)
                 correct += (outputs.argmax(dim=1) == target).float().sum()
 
@@ -133,9 +123,10 @@ class Solver:
 if __name__ == '__main__':
     data_dir = f'{PROJECT_DIR}/src/data/data'
     dataset = FashionMnistHandler(data_dir, False)
-    train_loader, val_loader, test_loader = dataset.get_noisy_loaders(p_noise=0.5, type_noise='1', val_size=0.2)
-    resnet = models.resnet34(pretrained=False, progress=False)
-    optimizer = torch.optim.Adam(resnet.parameters())
+    dataset.load()
+    train_loader, val_loader, test_loader = dataset.get_loaders(val_size=0.2)
+    model = Network()
+    optimizer = torch.optim.Adam(model.parameters())
     criterion = nn.CrossEntropyLoss()
-    solver = Solver('test', resnet, optimizer, criterion, train_loader, val_loader, test_loader)
-    solver.train(2, True)
+    solver = Solver('test', model, optimizer, criterion, train_loader, val_loader, test_loader)
+    solver.train(epochs=5, verbose=True)
