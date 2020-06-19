@@ -91,7 +91,7 @@ class Solver:
             self.summary.add_scalar('Accuracy/val', val_acc, epoch+1)
 
             if verbose and (epoch + 1) % 1 == 0:
-                print(f"Epoch: {epoch + 1} || Train avg loss: {train_loss:.4f} ||"
+                print(f"Epoch: {epoch + 1} || Train avg loss: {np.mean(train_losses):.4f} ||"
                       f"Train acc.: {train_acc:.3f} || Val avg. loss: {val_loss:.4f} "
                       f"|| Val avg. acc: {val_acc:.4f}")
 
@@ -103,7 +103,7 @@ class Solver:
         :return:                  Loss (float), Accuracy (float)
         """
         self.model.eval()
-        val_loss, correct = 0, 0
+        val_loss, correct, total_items = 0, 0, 0
 
         with torch.no_grad():
             for inputs, target in self.val_loader:
@@ -111,10 +111,13 @@ class Solver:
                 target.to(self.device)
 
                 outputs = self.model(inputs)
+                outputs = F.softmax(outputs, dim=1)
+
                 val_loss += self.loss(outputs, target).item() / len(self.val_loader)
                 correct += (outputs.argmax(dim=1) == target).float().sum()
+                total_items += target.size(0)
 
-        val_acc = 100. * correct / len(self.val_loader.dataset)
+        val_acc = 100. * correct / total_items
         return val_loss, val_acc
 
 
@@ -124,7 +127,7 @@ if __name__ == '__main__':
     dataset.load()
     train_loader, val_loader, test_loader = dataset.get_loaders(val_size=1/6)
     model = Network()
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
-    criterion = DMILoss(num_classes=10)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    criterion = nn.CrossEntropyLoss()
     solver = Solver('test', model, optimizer, criterion, train_loader, val_loader, test_loader)
     solver.train(epochs=5, verbose=True)
