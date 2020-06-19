@@ -15,35 +15,39 @@ sys.path.append(f"{PROJECT_DIR}")
 
 if __name__ == '__main__':
 
+    torch.random.manual_seed(42)
+
     # general parameters
     data_dir = f'{PROJECT_DIR}/src/data/data'
-    noise_values = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
-    losses = [DMILoss(num_classes=2)] * 3
+
+    # parameters
+    loss = DMILoss(num_classes=2)
+    tp_noise = '1'
+    noise_values = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
     EPOCHS = 20
+    lr = 1e-4
 
     for noise_value in noise_values:
-
         # RUN Experiments
-        for loss, tp_noise in zip(losses, ['1', '2', '3']):
-            loss_name = loss.__class__.__name__
-            tag = noise_value if loss_name == 'DMILoss' else ''
-            name = f'CNN_{loss_name}_{tag}'
+        loss_name = loss.__class__.__name__
+        tag = noise_value if loss_name == 'DMILoss' else ''
+        name = f'CNN_{loss_name}_{tp_noise}_{tag}'
 
-            print(f"Training {name} ...")
+        print(f"Training {name} with noise of type {tp_noise} and probability {noise_value}...")
 
-            # data preparation
-            dataset = FashionMnistHandler(data_dir, False)
-            dataset.load()
-            train_loader, val_loader, test_loader = dataset.get_noisy_loaders(p_noise=noise_value,
-                                                                              type_noise=tp_noise,
-                                                                              val_size=1 / 6)
+        # data preparation
+        dataset = FashionMnistHandler(data_dir, False)
+        dataset.load()
+        train_loader, val_loader, test_loader = dataset.get_noisy_loaders(p_noise=noise_value,
+                                                                          type_noise=tp_noise,
+                                                                          val_size=1 / 6)
 
-            # model, optimizer
-            model = Network()
-            optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+        # model, optimizer
+        model = Network()
+        optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
-            # train
-            solver = Solver(name, model, optimizer, loss, train_loader, val_loader, test_loader)
-            solver.train(epochs=EPOCHS, verbose=True)
+        # train
+        solver = Solver(name, model, optimizer, loss, train_loader, val_loader, test_loader)
+        solver.train(epochs=EPOCHS, verbose=True)
 
-            print(f"Completed training...")
+        print(f"Completed training...")

@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from dotenv import find_dotenv, load_dotenv
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from tqdm import tqdm
+
 
 load_dotenv(find_dotenv())
 PROJECT_DIR = os.getenv('PROJECT_DIR')
@@ -48,26 +48,26 @@ class Solver:
 
         self.model.to(self.device)
         self.model.train()
-        loader = tqdm(self.train_loader)
 
-        best_valid_loss, _ = self._get_validation_results()
+        _, best_valid_acc = self._get_validation_results()
 
         for epoch in range(epochs):
 
             train_losses = []
             n_correct, total_items = 0.0, 0.0
 
-            for i, data in enumerate(loader):
+            for i, data in enumerate(self.train_loader):
                 inputs, labels = data
                 inputs.to(self.device)
                 labels.to(self.device)
 
-                # Optimization step
+                # region: Optimization step
                 self.optimizer.zero_grad()
                 outputs = self.model(inputs)
                 loss = self.loss(outputs, labels)
                 loss.backward()
                 self.optimizer.step()
+                # endregion
 
                 # Getting the avg loss
                 train_losses.append(loss.item())
@@ -78,27 +78,30 @@ class Solver:
                 n_correct += batch_correct
                 total_items += len(inputs)
 
-                # Reporting actual batch results
-                loader.set_description(
-                    f'Epoch: {epoch + 1}  - Loss: {np.mean(train_losses[-20:]):.4f} ')
-
             # reports
             train_acc = 100 * n_correct / total_items
             train_loss = np.mean(train_losses)
             val_loss, val_acc = self._get_validation_results()
 
-            if val_loss < best_valid_loss:
-                best_valid_loss = val_loss
+            # checkpoint
+            if val_acc < best_valid_acc:
+                best_valid_acc = val_acc
                 torch.save(dict(epoch=epoch + 1,
                                 model_state_dict=self.model.state_dict(),
                                 optimizer_state_dict=self.optimizer.state_dict(),
                                 train_loss=train_loss,
-                                valid_loss=val_loss), self.checkpoint_path + f'/model_{self.name}.pt')
+                                train_acc=train_acc,
+                                valid_loss=val_loss,
+                                valid_acc=val_acc), self.checkpoint_path + f'/model_{self.name}.pt')
 
-            self.summary.add_scalar('Loss/train', train_loss, epoch + 1)
-            self.summary.add_scalar('Loss/val', val_loss, epoch + 1)
-            self.summary.add_scalar('Accuracy/train', train_acc, epoch + 1)
-            self.summary.add_scalar('Accuracy/val', val_acc, epoch + 1)
+                print(f"Model saved in epoch {epoch+1} with val acc: {val_acc}.")
+
+            # region: monitoring
+            self.summary.add_scalar(f'{self.name}-Loss/train', train_loss, epoch + 1)
+            self.summary.add_scalar(f'{self.name}-Loss/val', val_loss, epoch + 1)
+            self.summary.add_scalar(f'{self.name}-Accuracy/train', train_acc, epoch + 1)
+            self.summary.add_scalar(f'{self.name}-Accuracy/val', val_acc, epoch + 1)
+            # endregion
 
             if verbose and (epoch + 1) % 1 == 0:
                 print(f"Epoch: {epoch + 1} || Train avg loss: {train_loss:.4f} ||"
@@ -115,6 +118,7 @@ class Solver:
         self.model.eval()
         val_loss, correct, total_items = 0, 0, 0
 
+        val_losses = []
         with torch.no_grad():
             for inputs, target in self.val_loader:
                 inputs.to(self.device)
@@ -123,9 +127,10 @@ class Solver:
                 outputs = self.model(inputs)
                 outputs = F.softmax(outputs, dim=1)
 
-                val_loss += self.loss(outputs, target).item() / len(self.val_loader)
+                val_losses.append(self.loss(outputs, target).item())
                 correct += (outputs.argmax(dim=1) == target).float().sum()
-                total_items += target.size(0)
+                total_items += len(inputs)
 
         val_acc = 100. * correct / total_items
+        val_loss = np.mean(val_losses)
         return val_loss, val_acc
