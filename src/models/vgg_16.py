@@ -1,10 +1,10 @@
-import torch
-import torch.nn as nn
-
-from torch.utils.model_zoo import load_url
 import logging
 import os
+
+import torch
+import torch.nn as nn
 from dotenv import find_dotenv, load_dotenv
+from torch.utils.model_zoo import load_url
 
 # region: CONFIG STUB
 logger = logging.getLogger(__name__)
@@ -15,11 +15,12 @@ load_dotenv(find_dotenv())
 PROJECT_DIR = os.getenv('PROJECT_DIR')
 RANDOM_SEED = int(os.getenv('RANDOM_SEED'))
 TRAIN_BATCH_SIZE = int(os.getenv('TRAIN_BATCH_SIZE'))
+
+
 # endregion
 
 
 class VGG16(nn.Module):
-
     WEIGHTS_URL = 'https://download.pytorch.org/models/vgg16-397923af.pth'
     MODEL_DIR = f'{PROJECT_DIR}/models'
     ARCH = [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'M', 512, 512, 512, 'M']
@@ -81,4 +82,3 @@ class VGG16(nn.Module):
                     layers += [conv2d, nn.ReLU(inplace=True)]
                 in_channels = layer
         return nn.Sequential(*layers)
-

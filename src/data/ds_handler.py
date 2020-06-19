@@ -5,11 +5,9 @@ from abc import abstractmethod
 import numpy as np
 import torch
 import torchvision.transforms as transforms
-from torchvision.datasets import FashionMNIST
 from dotenv import find_dotenv, load_dotenv
 from torch.utils.data.sampler import SubsetRandomSampler
 from torchvision import datasets
-
 
 load_dotenv(find_dotenv())
 
@@ -181,7 +179,6 @@ class Cifar10Handler(DatasetHandler):
 
 
 class FashionMnistHandler(DatasetHandler):
-
     clothes_labels = []
 
     def __init__(self, data_dir: str, augment: bool = True):

@@ -1,16 +1,14 @@
-import sys
 import os
-from dotenv import find_dotenv, load_dotenv
-import torch.nn as nn
-import torch
-from torch.utils.tensorboard import SummaryWriter
-from src.data.ds_handler import FashionMnistHandler
-from src.models.simple_cnn import Network
-from src.models.losses import DMILoss
-from torch.utils.data import DataLoader
-import torch.nn.functional as F
-from tqdm import tqdm
+import sys
+
 import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from dotenv import find_dotenv, load_dotenv
+from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
 
 load_dotenv(find_dotenv())
 PROJECT_DIR = os.getenv('PROJECT_DIR')
@@ -36,7 +34,8 @@ class Solver:
         self.val_loader: DataLoader = val_loader
         self.test_loader: DataLoader = test_loader
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.summary = SummaryWriter(f"{PROJECT_DIR}/data")
+        self.summary = SummaryWriter(f"{PROJECT_DIR}/data/summaries")
+        self.checkpoint_path = f"{PROJECT_DIR}/models"
 
     def train(self, epochs: int, verbose: bool = False):
         """
@@ -51,7 +50,9 @@ class Solver:
         self.model.train()
         loader = tqdm(self.train_loader)
 
-        for epoch in tqdm(range(epochs)):
+        best_valid_loss, _ = self._get_validation_results()
+
+        for epoch in range(epochs):
 
             train_losses = []
             n_correct, total_items = 0.0, 0.0
@@ -83,15 +84,24 @@ class Solver:
 
             # reports
             train_acc = 100 * n_correct / total_items
+            train_loss = np.mean(train_losses)
             val_loss, val_acc = self._get_validation_results()
 
-            self.summary.add_scalar('Loss/train', np.mean(train_losses), epoch+1)
-            self.summary.add_scalar('Loss/val', val_loss, epoch+1)
-            self.summary.add_scalar('Accuracy/train', train_acc, epoch+1)
-            self.summary.add_scalar('Accuracy/val', val_acc, epoch+1)
+            if val_loss < best_valid_loss:
+                best_valid_loss = val_loss
+                torch.save(dict(epoch=epoch + 1,
+                                model_state_dict=self.model.state_dict(),
+                                optimizer_state_dict=self.optimizer.state_dict(),
+                                train_loss=train_loss,
+                                valid_loss=val_loss), self.checkpoint_path + f'/model_{self.name}.pt')
+
+            self.summary.add_scalar('Loss/train', train_loss, epoch + 1)
+            self.summary.add_scalar('Loss/val', val_loss, epoch + 1)
+            self.summary.add_scalar('Accuracy/train', train_acc, epoch + 1)
+            self.summary.add_scalar('Accuracy/val', val_acc, epoch + 1)
 
             if verbose and (epoch + 1) % 1 == 0:
-                print(f"Epoch: {epoch + 1} || Train avg loss: {np.mean(train_losses):.4f} ||"
+                print(f"Epoch: {epoch + 1} || Train avg loss: {train_loss:.4f} ||"
                       f"Train acc.: {train_acc:.3f} || Val avg. loss: {val_loss:.4f} "
                       f"|| Val avg. acc: {val_acc:.4f}")
 
@@ -119,21 +129,3 @@ class Solver:
 
         val_acc = 100. * correct / total_items
         return val_loss, val_acc
-
-
-if __name__ == '__main__':
-    # data preparation
-    data_dir = f'{PROJECT_DIR}/src/data/data'
-    dataset = FashionMnistHandler(data_dir, False)
-    dataset.load()
-    train_loader, val_loader, test_loader = dataset.get_noisy_loaders(p_noise=0.2, type_noise='1', val_size=1/6)
-
-    # model, optimizer, loss def
-    model = Network()
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
-    # criterion = nn.CrossEntropyLoss()
-    criterion = DMILoss(num_classes=2)
-
-    # train
-    solver = Solver('test', model, optimizer, criterion, train_loader, val_loader, test_loader)
-    solver.train(epochs=5, verbose=True)

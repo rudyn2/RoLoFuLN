@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 
-import click
-import sys
 import os
+import sys
+
+import click
 from dotenv import find_dotenv, load_dotenv
 
 load_dotenv(find_dotenv())

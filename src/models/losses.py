@@ -1,6 +1,6 @@
-import torch.nn.functional as F
-import torch.nn as nn
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
 
 class DMILoss(nn.Module):
@@ -14,5 +14,4 @@ class DMILoss(nn.Module):
         target_one_hot = F.one_hot(target, self.num_classes)
         joint_dist = output.transpose(0, 1).float() @ target_one_hot.float()
         joint_dist /= target.size(0)
-        return -1.0 * torch.log(torch.abs(torch.det(joint_dist.float()))+1e-20)
-
+        return -1.0 * torch.log(torch.abs(torch.det(joint_dist.float())) + 1e-20)
