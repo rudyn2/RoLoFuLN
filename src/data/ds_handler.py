@@ -97,6 +97,9 @@ class DatasetHandler:
         error_msg = "[!] valid_size should be in the range [0, 1]."
         assert ((valid_size >= 0) and (valid_size <= 1)), error_msg
 
+        if self.train_dataset is None:
+            raise ValueError("Train dataset hasn't been loaded. Please call .load() first.")
+
         num_train = len(self.train_dataset)
         idxs = list(range(num_train))
         split = int(np.floor(valid_size * num_train))
@@ -116,10 +119,10 @@ class DatasetHandler:
         train_sampler, valid_sampler = self._split(val_size, shuffle)
 
         train_loader = torch.utils.data.DataLoader(
-            self.train_dataset, batch_size=TRAIN_BATCH_SIZE, sampler=train_sampler,
+            self.train_dataset, batch_size=TRAIN_BATCH_SIZE, sampler=train_sampler, shuffle=False,
             num_workers=2)
         valid_loader = torch.utils.data.DataLoader(
-            self.valid_dataset, batch_size=VAL_BATCH_SIZE, sampler=valid_sampler,
+            self.valid_dataset, batch_size=VAL_BATCH_SIZE, sampler=valid_sampler, shuffle=False,
             num_workers=2)
         test_loader = torch.utils.data.DataLoader(
             self.test_dataset, batch_size=TEST_BATCH_SIZE, num_workers=2)
