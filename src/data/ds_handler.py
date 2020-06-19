@@ -227,42 +227,69 @@ class FashionMnistHandler(DatasetHandler):
             self.load()
 
         if type_noise == '1':
-            self.train_dataset = self.dataset(root=self.data_dir,
-                                              train=True,
-                                              download=False,
-                                              transform=self.train_transform,
-                                              target_transform=Noise(p_noise,
-                                                                     possible_labels=list(range(10)),
-                                                                     check_label=list(range(10))))
+            noise = Noise1(p_noise, bag_label=8)
         elif type_noise == '2':
-            self.train_dataset = self.dataset(root=self.data_dir,
-                                              train=True,
-                                              download=False,
-                                              transform=self.train_transform,
-                                              target_transform=Noise(p_noise,
-                                                                     possible_labels=[0, 1, 2, 3, 4, 6],
-                                                                     check_label=[8]))
+            noise = Noise2(p_noise, bag_label=8)
         else:
-            self.train_dataset = self.dataset(root=self.data_dir,
-                                              train=True,
-                                              download=False,
-                                              transform=self.train_transform,
-                                              target_transform=Noise(p_noise,
-                                                                     possible_labels=[8],
-                                                                     check_label=[0, 1, 2, 3, 4, 6]))
+            noise = Noise3(p_noise, bag_label=8)
+
+        self.train_dataset = self.dataset(root=self.data_dir,
+                                          train=True,
+                                          download=False,
+                                          transform=self.train_transform,
+                                          target_transform=noise)
+        self.valid_dataset = self.dataset(root=self.data_dir,
+                                          train=True,
+                                          download=False,
+                                          transform=self.valid_transform,
+                                          target_transform=noise)
+        self.test_dataset = self.dataset(root=self.data_dir,
+                                         train=False,
+                                         download=False,
+                                         transform=self.test_transform,
+                                         target_transform=noise)
+
         return self.get_loaders(val_size=val_size)
 
 
 class Noise(object):
-    def __init__(self, p_noise: float, possible_labels: list, check_label: list):
+    def __init__(self, p_noise: float, bag_label: int):
         self.p_noise = p_noise
-        self.possible_labels = possible_labels
-        self.check_label = check_label
+        self.bag_label = bag_label
+
+
+class Noise1(Noise):
+    def __init__(self, p_noise: float, bag_label: int):
+        super(Noise1, self).__init__(p_noise, bag_label)
 
     def __call__(self, label):
-        if label in self.check_label and np.random.rand() < self.p_noise:
-            return label
-        return self.possible_labels[np.random.randint(0, len(self.possible_labels))]
+        if np.random.rand() <= self.p_noise:
+            return np.random.randint(0, 2)
+        return 0 if label == self.bag_label else 1
+
+
+class Noise2(Noise):
+    def __init__(self, p_noise: float, bag_label: int):
+        super(Noise2, self).__init__(p_noise, bag_label)
+
+    def __call__(self, label):
+        # 0: bag
+        # 1: clothes
+        if label == self.bag_label and np.random.rand() <= self.p_noise:
+            return 1
+        return 0
+
+
+class Noise3(Noise):
+    def __init__(self, p_noise: float, bag_label: int):
+        super(Noise3, self).__init__(p_noise, bag_label)
+
+    def __call__(self, label):
+        # 0: bag
+        # 1: clothes
+        if label != self.bag_label and np.random.rand() <= self.p_noise:
+            return 0
+        return 1
 
 
 if __name__ == '__main__':

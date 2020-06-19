@@ -12,7 +12,7 @@ class Network(nn.Module):
 
         self.fc1 = nn.Linear(in_features=12*4*4, out_features=120)
         self.fc2 = nn.Linear(in_features=120, out_features=60)
-        self.out = nn.Linear(in_features=60, out_features=10)
+        self.out = nn.Linear(in_features=60, out_features=2)
 
     def forward(self, t):
         t = self.conv1(t)
@@ -35,6 +35,5 @@ class Network(nn.Module):
 
         # output
         t = self.out(t)
-        # don't need softmax here since we'll use cross-entropy as activation.
 
         return t

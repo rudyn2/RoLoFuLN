@@ -122,12 +122,18 @@ class Solver:
 
 
 if __name__ == '__main__':
+    # data preparation
     data_dir = f'{PROJECT_DIR}/src/data/data'
     dataset = FashionMnistHandler(data_dir, False)
     dataset.load()
-    train_loader, val_loader, test_loader = dataset.get_loaders(val_size=1/6)
+    train_loader, val_loader, test_loader = dataset.get_noisy_loaders(p_noise=0.2, type_noise='1', val_size=1/6)
+
+    # model, optimizer, loss def
     model = Network()
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-    criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+    # criterion = nn.CrossEntropyLoss()
+    criterion = DMILoss(num_classes=2)
+
+    # train
     solver = Solver('test', model, optimizer, criterion, train_loader, val_loader, test_loader)
     solver.train(epochs=5, verbose=True)
