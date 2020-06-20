@@ -36,4 +36,4 @@ class Network(nn.Module):
         # output
         t = self.out(t)
 
-        return t
+        return F.softmax(t, dim=1)

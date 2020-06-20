@@ -33,6 +33,7 @@ class Solver:
         self.train_loader: DataLoader = train_loader
         self.val_loader: DataLoader = val_loader
         self.test_loader: DataLoader = test_loader
+
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.summary = SummaryWriter(f"{PROJECT_DIR}/data/summaries")
         self.checkpoint_path = f"{PROJECT_DIR}/models"
@@ -64,13 +65,13 @@ class Solver:
                 # region: Optimization step
                 self.optimizer.zero_grad()
                 outputs = self.model(inputs)
-                loss = self.loss(outputs, labels)
-                loss.backward()
+                loss_ = self.loss(outputs, labels)
+                loss_.backward()
                 self.optimizer.step()
                 # endregion
 
                 # Getting the avg loss
-                train_losses.append(loss.item())
+                train_losses.append(loss_.item())
 
                 # calculating accuracy
                 outputs = F.softmax(outputs, dim=1)
