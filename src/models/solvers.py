@@ -49,13 +49,19 @@ class Solver:
 
         self.model.to(self.device)
         self.model.train()
+        self.model.apply(self.weights_init)
 
-        _, best_valid_acc = self._get_validation_results()
+        best_valid_acc = 0
+        checkpoint = False
+        ce_epochs = int(epochs/2)
+        ce_loss = torch.nn.CrossEntropyLoss()
 
-        for epoch in range(epochs):
+        for epoch in range(ce_epochs):
 
             train_losses = []
             n_correct, total_items = 0.0, 0.0
+
+            working_loss = ce_loss if epoch <= ce_epochs else self.loss
 
             for i, data in enumerate(self.train_loader):
                 inputs, labels = data
@@ -65,7 +71,7 @@ class Solver:
                 # region: Optimization step
                 self.optimizer.zero_grad()
                 outputs = self.model(inputs)
-                loss_ = self.loss(outputs, labels)
+                loss_ = working_loss(outputs, labels)
                 loss_.backward()
                 self.optimizer.step()
                 # endregion
@@ -85,7 +91,7 @@ class Solver:
             val_loss, val_acc = self._get_validation_results()
 
             # checkpoint
-            if val_acc < best_valid_acc:
+            if val_acc > best_valid_acc:
                 best_valid_acc = val_acc
                 torch.save(dict(epoch=epoch + 1,
                                 model_state_dict=self.model.state_dict(),
@@ -94,8 +100,7 @@ class Solver:
                                 train_acc=train_acc,
                                 valid_loss=val_loss,
                                 valid_acc=val_acc), self.checkpoint_path + f'/model_{self.name}.pt')
-
-                print(f"Model saved in epoch {epoch+1} with val acc: {val_acc}.")
+                checkpoint = True
 
             # region: monitoring
             self.summary.add_scalar(f'{self.name}-Loss/train', train_loss, epoch + 1)
@@ -105,9 +110,13 @@ class Solver:
             # endregion
 
             if verbose and (epoch + 1) % 1 == 0:
-                print(f"Epoch: {epoch + 1} || Train avg loss: {train_loss:.4f} ||"
+                loss_tag = working_loss.__class__.__name__
+                print(f"Epoch: {epoch + 1} ({loss_tag})|| Train avg loss: {train_loss:.4f} ||"
                       f"Train acc.: {train_acc:.3f} || Val avg. loss: {val_loss:.4f} "
                       f"|| Val avg. acc: {val_acc:.4f}")
+                if checkpoint:
+                    checkpoint = False
+                    print(f"Model saved in epoch {epoch + 1} with val acc: {val_acc}.")
 
     def _get_validation_results(self):
         """
@@ -135,3 +144,8 @@ class Solver:
         val_acc = 100. * correct / total_items
         val_loss = np.mean(val_losses)
         return val_loss, val_acc
+
+    @staticmethod
+    def weights_init(m):
+        if isinstance(m, nn.Conv2d):
+            torch.nn.init.xavier_uniform_(m.weight.data)

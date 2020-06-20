@@ -1,39 +1,31 @@
 import torch.nn as nn
-import torch.nn.functional as F
 
 
-class Network(nn.Module):
+class CNNModel(nn.Module):
     def __init__(self):
-        super().__init__()
+        super(CNNModel, self).__init__()
 
-        # define layers
-        self.conv1 = nn.Conv2d(in_channels=1, out_channels=6, kernel_size=5)
-        self.conv2 = nn.Conv2d(in_channels=6, out_channels=12, kernel_size=5)
+        self.cnn1 = nn.Conv2d(in_channels=1, out_channels=16, kernel_size=5, stride=1, padding=0)
+        self.relu1 = nn.ReLU()
+        self.maxpool1 = nn.MaxPool2d(kernel_size=2)
 
-        self.fc1 = nn.Linear(in_features=12 * 4 * 4, out_features=120)
-        self.fc2 = nn.Linear(in_features=120, out_features=60)
-        self.out = nn.Linear(in_features=60, out_features=2)
+        self.cnn2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=5, stride=1, padding=0)
+        self.relu2 = nn.ReLU()
+        self.maxpool2 = nn.MaxPool2d(kernel_size=2)
 
-    def forward(self, t):
-        t = self.conv1(t)
-        t = F.relu(t)
-        t = F.max_pool2d(t, kernel_size=2, stride=2)
+        self.dropout = nn.Dropout(p=0.5)
 
-        # conv 2
-        t = self.conv2(t)
-        t = F.relu(t)
-        t = F.max_pool2d(t, kernel_size=2, stride=2)
+        self.fc1 = nn.Linear(32 * 4 * 4, 2)
 
-        # fc1
-        t = t.reshape(-1, 12 * 4 * 4)
-        t = self.fc1(t)
-        t = F.relu(t)
+    def forward(self, x):
+        out = self.cnn1(x)
+        out = self.relu1(out)
+        out = self.maxpool1(out)
+        out = self.cnn2(out)
+        out = self.relu2(out)
+        out = self.maxpool2(out)
+        out = out.view(out.size(0), -1)
+        out = self.dropout(out)
+        out = self.fc1(out)
 
-        # fc2
-        t = self.fc2(t)
-        t = F.relu(t)
-
-        # output
-        t = self.out(t)
-
-        return F.softmax(t, dim=1)
+        return out

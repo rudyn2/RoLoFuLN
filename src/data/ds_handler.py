@@ -5,19 +5,11 @@ from abc import abstractmethod
 import numpy as np
 import torch
 import torchvision.transforms as transforms
-from dotenv import find_dotenv, load_dotenv
 from torch.utils.data.sampler import SubsetRandomSampler
 from torchvision import datasets
 
-load_dotenv(find_dotenv())
 
-# loading env vars
-RANDOM_SEED = int(os.getenv('RANDOM_SEED'))
-TRAIN_BATCH_SIZE = int(os.getenv('TRAIN_BATCH_SIZE'))
-VAL_BATCH_SIZE = int(os.getenv('TRAIN_BATCH_SIZE'))
-TEST_BATCH_SIZE = int(os.getenv('TRAIN_BATCH_SIZE'))
-
-np.random.seed(RANDOM_SEED)
+RANDOM_SEED = 42
 
 
 class DatasetHandler:
@@ -48,17 +40,14 @@ class DatasetHandler:
         self.valid_dataset = None
         self.test_dataset = None
 
-    @property
     @abstractmethod
     def train_transform(self) -> transforms.Compose:
         raise NotImplementedError
 
-    @property
     @abstractmethod
     def valid_transform(self) -> transforms.Compose:
         raise NotImplementedError
 
-    @property
     @abstractmethod
     def test_transform(self) -> transforms.Compose:
         raise NotImplementedError
@@ -68,27 +57,27 @@ class DatasetHandler:
         self.dataset(root=self.data_dir,
                      train=True,
                      download=True,
-                     transform=self.train_transform)
+                     transform=self.train_transform())
         # downloads test set
         self.dataset(root=self.data_dir,
                      train=False,
                      download=True,
-                     transform=self.test_transform)
+                     transform=self.test_transform())
 
     def load(self):
         # load the dataset
         self.train_dataset = self.dataset(root=self.data_dir,
                                           train=True,
                                           download=False,
-                                          transform=self.train_transform)
+                                          transform=self.train_transform())
         self.valid_dataset = self.dataset(root=self.data_dir,
                                           train=True,
                                           download=False,
-                                          transform=self.valid_transform)
+                                          transform=self.valid_transform())
         self.test_dataset = self.dataset(root=self.data_dir,
                                          train=False,
                                          download=False,
-                                         transform=self.test_transform)
+                                         transform=self.test_transform())
 
     def _split(self, valid_size: float, shuffle: bool):
 
@@ -112,18 +101,18 @@ class DatasetHandler:
 
         return train_sampler, valid_sampler
 
-    def get_loaders(self, val_size: float = 0, shuffle: bool = False):
+    def get_loaders(self, val_size: float, train_batch_size: int, val_batch_size: int, test_batch_size ):
 
-        train_sampler, valid_sampler = self._split(val_size, shuffle)
+        train_sampler, valid_sampler = self._split(val_size, shuffle=True)
 
         train_loader = torch.utils.data.DataLoader(
-            self.train_dataset, batch_size=TRAIN_BATCH_SIZE, sampler=train_sampler, shuffle=False,
-            num_workers=2)
+            self.train_dataset, batch_size=train_batch_size, sampler=train_sampler, shuffle=False,
+            num_workers=4)
         valid_loader = torch.utils.data.DataLoader(
-            self.valid_dataset, batch_size=VAL_BATCH_SIZE, sampler=valid_sampler, shuffle=False,
-            num_workers=2)
+            self.valid_dataset, batch_size=val_batch_size, sampler=valid_sampler, shuffle=False,
+            num_workers=4)
         test_loader = torch.utils.data.DataLoader(
-            self.test_dataset, batch_size=TEST_BATCH_SIZE, num_workers=2)
+            self.test_dataset, batch_size=test_batch_size, num_workers=4)
 
         return train_loader, valid_loader, test_loader
 
@@ -133,49 +122,36 @@ class Cifar10Handler(DatasetHandler):
     def __init__(self, data_dir: str, augment: bool = True):
         super(Cifar10Handler, self).__init__(datasets.CIFAR10, data_dir, augment)
 
-        self.train_normalizer = transforms.Normalize(
+        train_normalizer = transforms.Normalize(
             mean=[0.4914, 0.4822, 0.4465],
             std=[0.2023, 0.1994, 0.2010],
         )
 
-        self.test_normalizer = transforms.Normalize(
+        test_normalizer = transforms.Normalize(
             mean=[0.485, 0.456, 0.406],
             std=[0.229, 0.224, 0.225],
         )
 
-    @property
-    def train_transform(self) -> transforms.Compose:
-
-        if self.augment:
-            train_transform = transforms.Compose([
+        self.with_augment_transform = [
                 transforms.RandomCrop(32, padding=4),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
-                self.train_normalizer,
-            ])
-        else:
-            train_transform = transforms.Compose([
-                transforms.ToTensor(),
-                self.train_normalizer,
-            ])
-        return train_transform
+                train_normalizer
+            ]
 
-    @property
+        self.without_augment_train_transform = [transforms.ToTensor(), train_normalizer]
+        self.test_transform = [transforms.ToTensor(), test_normalizer]
+
+    def train_transform(self) -> transforms.Compose:
+        if self.augment:
+            return transforms.Compose(self.with_augment_transform)
+        return transforms.Compose(self.without_augment_train_transform)
+
     def valid_transform(self):
+        return transforms.Compose(self.without_augment_train_transform)
 
-        return transforms.Compose([
-            transforms.ToTensor(),
-            self.train_normalizer,
-        ])
-
-    @property
     def test_transform(self) -> transforms.Compose:
-
-        # define transform
-        return transforms.Compose([
-            transforms.ToTensor(),
-            self.test_normalizer,
-        ])
+        return transforms.Compose(self.test_transform)
 
 
 class FashionMnistHandler(DatasetHandler):
@@ -184,20 +160,20 @@ class FashionMnistHandler(DatasetHandler):
     def __init__(self, data_dir: str, augment: bool = True):
         super(FashionMnistHandler, self).__init__(datasets.FashionMNIST, data_dir, augment)
 
-        self.train_transform = transforms.Compose([transforms.ToTensor()])
-        self.valid_transform = transforms.Compose([transforms.ToTensor()])
-        self.test_transform = transforms.Compose([transforms.ToTensor()])
+        self.transform_1 = [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
+        self.transform_2 = [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
 
     def train_transform(self) -> transforms.Compose:
-        return self.train_transform
+        return transforms.Compose(self.transform_1)
 
     def valid_transform(self):
-        return self.valid_transform
+        return transforms.Compose(self.transform_2)
 
     def test_transform(self) -> transforms.Compose:
-        return self.test_transform
+        return transforms.Compose(self.transform_2)
 
-    def get_noisy_loaders(self, p_noise: float, type_noise: str, val_size: float):
+    def get_noisy_loaders(self, p_noise: float, type_noise: str, val_size: float,
+                          train_batch_size: int, val_batch_size: int, test_batch_size: int):
         """
         Adds labels noise to Fashion Mnist Dataset.
 
@@ -233,20 +209,20 @@ class FashionMnistHandler(DatasetHandler):
         self.train_dataset = self.dataset(root=self.data_dir,
                                           train=True,
                                           download=False,
-                                          transform=self.train_transform,
+                                          transform=self.train_transform(),
                                           target_transform=noise)
         self.valid_dataset = self.dataset(root=self.data_dir,
                                           train=True,
                                           download=False,
-                                          transform=self.valid_transform,
+                                          transform=self.valid_transform(),
                                           target_transform=noise)
         self.test_dataset = self.dataset(root=self.data_dir,
                                          train=False,
                                          download=False,
-                                         transform=self.test_transform,
+                                         transform=self.test_transform(),
                                          target_transform=noise)
 
-        return self.get_loaders(val_size=val_size)
+        return self.get_loaders(val_size, train_batch_size, val_batch_size, test_batch_size)
 
 
 class Noise(object):

@@ -6,7 +6,7 @@ from dotenv import find_dotenv, load_dotenv
 
 from src.data.ds_handler import FashionMnistHandler
 from src.models.losses import DMILoss
-from src.models.simple_cnn import Network
+from src.models.simple_cnn import CNNModel
 from src.models.solvers import Solver
 
 load_dotenv(find_dotenv())
@@ -21,17 +21,17 @@ if __name__ == '__main__':
     data_dir = f'{PROJECT_DIR}/src/data/data'
 
     # parameters
+    # loss = DMILoss(num_classes=2)
     loss = DMILoss(num_classes=2)
     tp_noise = '1'
-    noise_values = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+    noise_values = [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
     EPOCHS = 20
-    lr = 1e-4
+    lr = 1e-3
 
     for noise_value in noise_values:
         # RUN Experiments
         loss_name = loss.__class__.__name__
-        tag = noise_value if loss_name == 'DMILoss' else ''
-        name = f'CNN_{loss_name}_{tp_noise}_{tag}'
+        name = f'CNN_{loss_name}_{tp_noise}_{noise_value}'
 
         print(f"Training {name} with noise of type {tp_noise} and probability {noise_value}...")
 
@@ -40,10 +40,13 @@ if __name__ == '__main__':
         dataset.load()
         train_loader, val_loader, test_loader = dataset.get_noisy_loaders(p_noise=noise_value,
                                                                           type_noise=tp_noise,
-                                                                          val_size=1 / 6)
+                                                                          val_size=1 / 6,
+                                                                          train_batch_size=64,
+                                                                          val_batch_size=64,
+                                                                          test_batch_size=64)
 
         # model, optimizer
-        model = Network()
+        model = CNNModel()
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
         # train
