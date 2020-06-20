@@ -3,7 +3,54 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
+import pickle
+import matplotlib.pyplot as plt
+
+
+class Summary:
+    """
+    Auxiliary class to record train and validation losses and accuracies.
+    """
+
+    def __init__(self, name: str, type_noise: str, noise_rate: float):
+        self.name = name
+
+        self.train_losses = []
+        self.train_accuracies = []
+        self.val_losses = []
+        self.val_accuracies = []
+
+        self.type_noise = type_noise
+        self.noise_rate = noise_rate
+
+    def record_metrics(self, train_loss: float, train_acc: float, val_loss: float, val_acc: float):
+        self.train_losses.append(train_loss)
+        self.train_accuracies.append(train_acc)
+        self.val_losses.append(val_loss)
+        self.val_accuracies.append(val_acc)
+
+    def plot_loss(self, ax: plt.Axes, color):
+        return self.plot_metric(ax, color, self.train_losses, self.val_losses, 'Loss')
+
+    def plot_acc(self, ax: plt.Axes, color):
+        return self.plot_metric(ax, color, self.train_accuracies, self.val_accuracies, 'Accuracy')
+
+    def plot_metric(self, ax: plt.Axes, color: str, train: list, val: list, ylabel: str):
+        epochs = range(1, len(train) + 1)
+        ax.plot(epochs, train, label=f'{self.name}', color=color)
+        ax.plot(epochs, val, color=color, linestyle='dashed')
+        ax.legend()
+        ax.set(xlabel='# Epochs', ylabel=ylabel, title=f'{ylabel} vs Epochs')
+        return ax
+
+    def save(self, path: str):
+        with open(path+f'/{self.name}', 'wb') as summ_file:
+            pickle.dump(self, summ_file)
+
+    @classmethod
+    def load(cls, path_to_summ: str):
+        with open(path_to_summ, 'rb') as summ_file:
+            return pickle.load(summ_file)
 
 
 class Solver:
@@ -13,12 +60,15 @@ class Solver:
                  project_dir: str,
                  model: nn.Module,
                  optimizer,
-                 loss,
+                 loss: torch.nn,
+                 summary: Summary,
                  train_loader: DataLoader,
                  val_loader: DataLoader,
                  test_loader: DataLoader):
 
         self.name = name
+        self.project_dir = project_dir
+
         self.model = model
         self.optimizer = optimizer
         self.loss = loss
@@ -27,7 +77,7 @@ class Solver:
         self.test_loader: DataLoader = test_loader
 
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.summary = SummaryWriter(f"{project_dir}/summaries")
+        self.summary = summary
         self.checkpoint_path = f"{project_dir}/models"
 
     def train(self, epochs: int, verbose: bool = False):
@@ -56,8 +106,8 @@ class Solver:
 
             for i, data in enumerate(self.train_loader):
                 inputs, labels = data
-                inputs.to(self.device)
-                labels.to(self.device)
+                inputs = inputs.to(self.device)
+                labels = labels.to(self.device)
 
                 # region: Optimization step
                 self.optimizer.zero_grad()
@@ -78,8 +128,8 @@ class Solver:
 
             # reports
             train_acc = 100 * n_correct / total_items
-            train_loss = np.mean(train_losses)
-            val_loss, val_acc = self._get_validation_results()
+            train_loss = float(np.mean(train_losses))
+            val_loss, val_acc = self.eval(self.model, self.device, working_loss, self.val_loader)
 
             # checkpoint
             if val_acc > best_valid_acc:
@@ -93,12 +143,7 @@ class Solver:
                                 valid_acc=val_acc), self.checkpoint_path + f'/model_{self.name}.pt')
                 checkpoint = True
 
-            # region: monitoring
-            self.summary.add_scalar(f'{self.name}-Loss/train', train_loss, epoch + 1)
-            self.summary.add_scalar(f'{self.name}-Loss/val', val_loss, epoch + 1)
-            self.summary.add_scalar(f'{self.name}-Accuracy/train', train_acc, epoch + 1)
-            self.summary.add_scalar(f'{self.name}-Accuracy/val', val_acc, epoch + 1)
-            # endregion
+            self.summary.record_metrics(train_loss, train_acc, val_loss, val_acc)
 
             if verbose and (epoch + 1) % 1 == 0:
                 loss_tag = working_loss.__class__.__name__
@@ -109,30 +154,28 @@ class Solver:
                     checkpoint = False
                     print(f"Model saved in epoch {epoch + 1} with val acc: {val_acc}.")
 
-    def _get_validation_results(self):
-        """
-        Returns the average loss, and accuracy of the input model evaluated
-        in the data loader using the criterion.
+        self.summary.save(path=f"{self.project_dir}/summaries")
 
-        :return:                  Loss (float), Accuracy (float)
-        """
-        self.model.eval()
-        val_loss, correct, total_items = 0, 0, 0
+    @classmethod
+    def eval(cls, model, device, loss_fn, data_loader):
 
-        val_losses = []
+        model.eval()
+        correct, total_items = 0, 0
+
+        losses = []
         with torch.no_grad():
-            for inputs, target in self.val_loader:
-                inputs.to(self.device)
-                target.to(self.device)
+            for inputs, target in data_loader:
+                inputs = inputs.to(device)
+                target = target.to(device)
 
-                outputs = self.model(inputs)
+                outputs = model(inputs)
                 outputs = F.softmax(outputs, dim=1)
 
-                val_losses.append(self.loss(outputs, target).item())
+                losses.append(loss_fn(outputs, target).item())
                 correct += (outputs.argmax(dim=1) == target).float().sum()
                 total_items += len(inputs)
 
-        val_acc = 100. * correct / total_items
-        val_loss = np.mean(val_losses)
-        return val_loss, val_acc
+        acc = 100. * correct / total_items
+        loss = np.mean(losses)
+        return float(loss), float(acc)
 

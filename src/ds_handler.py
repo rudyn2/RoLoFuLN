@@ -172,6 +172,7 @@ class FashionMnistHandler(DatasetHandler):
     def test_transform(self) -> transforms.Compose:
         return transforms.Compose(self.transform_2)
 
+
     def get_noisy_loaders(self, p_noise: float, type_noise: str, val_size: float,
                           train_batch_size: int, val_batch_size: int, test_batch_size: int):
         """
@@ -220,7 +221,7 @@ class FashionMnistHandler(DatasetHandler):
                                          train=False,
                                          download=False,
                                          transform=self.test_transform(),
-                                         target_transform=noise)
+                                         target_transform=TargetGroup(bag_label=8))
 
         return self.get_loaders(val_size, train_batch_size, val_batch_size, test_batch_size)
 
@@ -229,6 +230,14 @@ class Noise(object):
     def __init__(self, p_noise: float, bag_label: int):
         self.p_noise = p_noise
         self.bag_label = bag_label
+
+
+class TargetGroup(object):
+    def __init__(self, bag_label: int):
+        self.bag_label = bag_label
+
+    def __call__(self, label):
+        return 0 if label == self.bag_label else 1
 
 
 class Noise1(Noise):

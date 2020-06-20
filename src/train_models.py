@@ -1,16 +1,16 @@
-
-
 import torch
+from pathlib import Path
+import os
 
-from src.models.ds_handler import FashionMnistHandler
-from src.models.losses import DMILoss
-from src.models.simple_cnn import CNNModel
-from src.models.solvers import Solver
+from src.ds_handler import FashionMnistHandler
+from src.losses import DMILoss
+from src.simple_cnn import CNNModel
+from src.solvers import Solver, Summary
 
 
 if __name__ == '__main__':
 
-    PROJECT_DIR = '/Users/rudy/PycharmProjects/RoLoFuLN'
+    PROJECT_DIR = str(Path(os.getcwd()).parent)
     torch.random.manual_seed(42)
 
     # general parameters
@@ -21,7 +21,7 @@ if __name__ == '__main__':
     loss = DMILoss(num_classes=2)
     tp_noise = '1'
     noise_values = [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
-    EPOCHS = 20
+    EPOCHS = 1
     lr = 1e-3
 
     for noise_value in noise_values:
@@ -41,12 +41,13 @@ if __name__ == '__main__':
                                                                           val_batch_size=64,
                                                                           test_batch_size=64)
 
-        # model, optimizer
+        # model, optimizer, summary
         model = CNNModel()
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+        summ = Summary(name, type_noise=tp_noise, noise_rate=noise_value)
 
         # train
-        solver = Solver(name, model, optimizer, loss, train_loader, val_loader, test_loader)
+        solver = Solver(name, PROJECT_DIR, model, optimizer, loss, summ, train_loader, val_loader, test_loader)
         solver.train(epochs=EPOCHS, verbose=True)
 
         print(f"Completed training...")
