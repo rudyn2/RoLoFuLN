@@ -1,24 +1,20 @@
-import os
-import sys
+
 
 import torch
-from dotenv import find_dotenv, load_dotenv
 
-from src.data.ds_handler import FashionMnistHandler
+from src.models.ds_handler import FashionMnistHandler
 from src.models.losses import DMILoss
 from src.models.simple_cnn import CNNModel
 from src.models.solvers import Solver
 
-load_dotenv(find_dotenv())
-PROJECT_DIR = os.getenv('PROJECT_DIR')
-sys.path.append(f"{PROJECT_DIR}")
 
 if __name__ == '__main__':
 
+    PROJECT_DIR = '/Users/rudy/PycharmProjects/RoLoFuLN'
     torch.random.manual_seed(42)
 
     # general parameters
-    data_dir = f'{PROJECT_DIR}/src/data/data'
+    data_dir = f'{PROJECT_DIR}/data'
 
     # parameters
     # loss = DMILoss(num_classes=2)

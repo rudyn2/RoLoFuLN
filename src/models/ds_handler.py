@@ -264,10 +264,3 @@ class Noise3(Noise):
             return 0
         return 1
 
-
-if __name__ == '__main__':
-    ds = FashionMnistHandler(data_dir='/Users/rudy/PycharmProjects/RoLoFuLN/src/data/data',
-                             augment=False)
-    train, _, _ = ds.get_noisy_loaders(p_noise=0.5, type_noise='1', val_size=0.2)
-    for inputs, target in train:
-        print(f"batch size: {len(inputs)}")

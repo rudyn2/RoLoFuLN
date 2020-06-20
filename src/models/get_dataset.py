@@ -10,7 +10,7 @@ load_dotenv(find_dotenv())
 PROJECT_DIR = os.getenv('PROJECT_DIR')
 sys.path.append(f"{PROJECT_DIR}")
 
-from src.data.ds_handler import Cifar10Handler, FashionMnistHandler
+from src.models.ds_handler import Cifar10Handler, FashionMnistHandler
 
 
 @click.command()

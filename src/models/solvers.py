@@ -1,24 +1,16 @@
-import os
-import sys
-
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from dotenv import find_dotenv, load_dotenv
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-
-
-load_dotenv(find_dotenv())
-PROJECT_DIR = os.getenv('PROJECT_DIR')
-sys.path.append(f"{PROJECT_DIR}")
 
 
 class Solver:
 
     def __init__(self,
                  name: str,
+                 project_dir: str,
                  model: nn.Module,
                  optimizer,
                  loss,
@@ -35,8 +27,8 @@ class Solver:
         self.test_loader: DataLoader = test_loader
 
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.summary = SummaryWriter(f"{PROJECT_DIR}/data/summaries")
-        self.checkpoint_path = f"{PROJECT_DIR}/models"
+        self.summary = SummaryWriter(f"{project_dir}/summaries")
+        self.checkpoint_path = f"{project_dir}/models"
 
     def train(self, epochs: int, verbose: bool = False):
         """
@@ -49,14 +41,13 @@ class Solver:
 
         self.model.to(self.device)
         self.model.train()
-        self.model.apply(self.weights_init)
 
         best_valid_acc = 0
         checkpoint = False
         ce_epochs = int(epochs/2)
         ce_loss = torch.nn.CrossEntropyLoss()
 
-        for epoch in range(ce_epochs):
+        for epoch in range(epochs):
 
             train_losses = []
             n_correct, total_items = 0.0, 0.0
@@ -145,7 +136,3 @@ class Solver:
         val_loss = np.mean(val_losses)
         return val_loss, val_acc
 
-    @staticmethod
-    def weights_init(m):
-        if isinstance(m, nn.Conv2d):
-            torch.nn.init.xavier_uniform_(m.weight.data)
