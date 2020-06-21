@@ -44,13 +44,12 @@ class Summary:
         return ax
 
     def save(self, path: str):
-        with open(path+f'/{self.name}', 'wb') as summ_file:
-            pickle.dump(self, summ_file)
+        torch.save(self, path+f'/{self.name}')
 
     @classmethod
     def load(cls, path_to_summ: str):
         with open(path_to_summ, 'rb') as summ_file:
-            return pickle.load(summ_file)
+            return torch.load(summ_file)
 
 
 class Solver:

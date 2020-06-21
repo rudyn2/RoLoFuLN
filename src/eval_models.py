@@ -52,9 +52,9 @@ if __name__ == '__main__':
     noise_values = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 
     for idx, type_noise in enumerate(['1', '2', '3']):
-        dmi_models_files = glob.glob(parent_dir + f'/models/model_CNN_DMILoss_{type_noise}_*.pt')
+        dmi_models_files = glob.glob(parent_dir + f'/models2/model_CNN_DMILoss_{type_noise}_*.pt')
         dmi_models_files = sorted(dmi_models_files, key=get_noise_rate_from_name)
-        ce_models_files = glob.glob(parent_dir + f'/models/model_CNN_CrossEntropyLoss_{type_noise}_*.pt')
+        ce_models_files = glob.glob(parent_dir + f'/models2/model_CNN_CrossEntropyLoss_{type_noise}_*.pt')
         ce_models_files = sorted(ce_models_files, key=get_noise_rate_from_name)
 
         dmi_test_acc = eval_models(dmi_models_files, data_dir)

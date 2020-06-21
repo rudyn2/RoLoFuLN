@@ -241,35 +241,29 @@ class TargetGroup(object):
 
 
 class Noise1(Noise):
+
     def __init__(self, p_noise: float, bag_label: int):
         super(Noise1, self).__init__(p_noise, bag_label)
+        self.conf_matrix = [[1 - p_noise/2, p_noise/2], [p_noise/2, 1-p_noise/2]]
 
     def __call__(self, label):
-        if np.random.rand() <= self.p_noise:
-            return np.random.randint(0, 2)
-        return 0 if label == self.bag_label else 1
+        return int(np.random.choice(2, 1, p=np.array(self.conf_matrix[0 if label == self.bag_label else 1])))
 
 
 class Noise2(Noise):
     def __init__(self, p_noise: float, bag_label: int):
         super(Noise2, self).__init__(p_noise, bag_label)
+        self.conf_matrix = [[1-p_noise, p_noise], [0, 1]]
 
     def __call__(self, label):
-        # 0: bag
-        # 1: clothes
-        if label == self.bag_label and np.random.rand() <= self.p_noise:
-            return 1
-        return 0
+        return int(np.random.choice(2, 1, p=np.array(self.conf_matrix[0 if label == self.bag_label else 1])))
 
 
 class Noise3(Noise):
     def __init__(self, p_noise: float, bag_label: int):
         super(Noise3, self).__init__(p_noise, bag_label)
+        self.conf_matrix = [[1, 0], [p_noise, 1 - p_noise]]
 
     def __call__(self, label):
-        # 0: bag
-        # 1: clothes
-        if label != self.bag_label and np.random.rand() <= self.p_noise:
-            return 0
-        return 1
+        return int(np.random.choice(2, 1, p=np.array(self.conf_matrix[0 if label == self.bag_label else 1])))
 
