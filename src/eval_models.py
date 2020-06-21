@@ -46,32 +46,26 @@ def eval_models(models_paths: list, path_to_data: str):
 
 if __name__ == '__main__':
     parent_dir = str(Path(os.getcwd()).parent)
-
     data_dir = parent_dir + '/data'
-    dmi_1_models_files = glob.glob(parent_dir + '/models/model_CNN_DMILoss_1_*.pt')
-    dmi_1_models_files = sorted(dmi_1_models_files, key=get_noise_rate_from_name)
-    ce_1_models_files = glob.glob(parent_dir + '/models/model_CNN_CrossEntropyLoss_1_*.pt')
-    ce_1_models_files = sorted(ce_1_models_files, key=get_noise_rate_from_name)
-
-    dmi_test_acc_1 = eval_models(dmi_1_models_files, data_dir)
-    ce_test_acc_1 = eval_models(ce_1_models_files, data_dir)
-
-    noise_values = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 
     fig, axs = plt.subplots(ncols=3, figsize=(16, 8), sharey='row')
-    ylim = [50, 100]
+    noise_values = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 
-    axs[0].plot(noise_values, dmi_test_acc_1, label='DMI')
-    axs[0].plot(noise_values, ce_test_acc_1, '--', label='CE')
-    axs[0].set_ylim(ylim)
+    for idx, type_noise in enumerate(['1', '2', '3']):
+        dmi_models_files = glob.glob(parent_dir + f'/models/model_CNN_DMILoss_{type_noise}_*.pt')
+        dmi_models_files = sorted(dmi_models_files, key=get_noise_rate_from_name)
+        ce_models_files = glob.glob(parent_dir + f'/models/model_CNN_CrossEntropyLoss_{type_noise}_*.pt')
+        ce_models_files = sorted(ce_models_files, key=get_noise_rate_from_name)
+
+        dmi_test_acc = eval_models(dmi_models_files, data_dir)
+        ce_test_acc = eval_models(ce_models_files, data_dir)
+
+        axs[idx].plot(noise_values, dmi_test_acc, label='DMI')
+        axs[idx].plot(noise_values, ce_test_acc, '--', label='CE')
+        axs[idx].set(xlabel='Noise amount ($r$)')
+
     axs[0].legend()
-    axs[0].set(xlabel='Noise amount ($r$)', ylabel='Test Accuracy (%)')
-
-    axs[1].set_ylim(ylim)
-    axs[1].set(xlabel='Noise amount ($r$)')
-
-    axs[2].set_ylim(ylim)
-    axs[2].set(xlabel='Noise amount ($r$)')
+    axs[0].set(ylabel='Test Accuracy (%)')
     plt.show()
 
 
