@@ -79,6 +79,15 @@ class DatasetHandler:
                                          transform=self.test_transform())
 
     def _split(self, valid_size: float, shuffle: bool):
+        """
+        Splits training dataset into train and validation sets using valid_size proportion.
+        :param valid_size:
+            [0, 1] -> Validation size proportion.
+        :param shuffle:
+            If True data will be shuffled.
+        :return:
+            Samplers for train and valid datasets.
+        """
 
         error_msg = "[!] valid_size should be in the range [0, 1]."
         assert ((valid_size >= 0) and (valid_size <= 1)), error_msg

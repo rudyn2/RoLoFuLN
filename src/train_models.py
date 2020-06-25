@@ -37,9 +37,9 @@ if __name__ == '__main__':
         train_loader, val_loader, test_loader = dataset.get_noisy_loaders(p_noise=noise_value,
                                                                           type_noise=tp_noise,
                                                                           val_size=1 / 6,
-                                                                          train_batch_size=64,
-                                                                          val_batch_size=64,
-                                                                          test_batch_size=64)
+                                                                          train_batch_size=128,
+                                                                          val_batch_size=128,
+                                                                          test_batch_size=128)
 
         # model, optimizer, summary
         model = CNNModel()
