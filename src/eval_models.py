@@ -1,11 +1,13 @@
-from pathlib import Path
-import os
 import glob
-from src.simple_cnn import CNNModel
-from src.solvers import Solver, Summary
-from src.ds_handler import FashionMnistHandler
-import torch
+import os
+from pathlib import Path
+
 import matplotlib.pyplot as plt
+import torch
+
+from src.ds_handler import FashionMnistHandler
+from src.simple_cnn import CNNModel
+from src.solvers import Solver
 
 
 def get_noise_rate_from_name(filename: str):
@@ -14,12 +16,20 @@ def get_noise_rate_from_name(filename: str):
 
 
 def eval_models(models_paths: list, path_to_data: str):
+    if len(models_paths) == 0:
+        return 0.0
+
+    # getting test loader
+    ds = FashionMnistHandler(path_to_data, False)
+    ds.download()
+    ds.load()
+    # noise parameters are not relevant since test loader shouldn't have noise
+    _, _, test_loader = ds.get_noisy_loaders(0, '1', 0.2, 128, 128, 128)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     test_acc = []
     for model_file in models_paths:
-
         # creating model
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         checkpoint = torch.load(model_file, map_location=device)
         model_name = model_file.split("/")[-1]
 
@@ -28,13 +38,6 @@ def eval_models(models_paths: list, path_to_data: str):
         model.load_state_dict(checkpoint['model_state_dict'])
         model.to(device)
         loss_fn = torch.nn.CrossEntropyLoss()
-
-        # getting test loader
-        ds = FashionMnistHandler(path_to_data, False)
-        ds.download()
-        ds.load()
-        # noise parameters are not relevant since test loader shouldn't have noise
-        _, _, test_loader = ds.get_noisy_loaders(0, '1', 0.2, 64, 64, 64)
 
         # evaluating
         _, acc = Solver.eval(model, device, loss_fn=loss_fn, data_loader=test_loader)
@@ -48,25 +51,53 @@ if __name__ == '__main__':
     parent_dir = str(Path(os.getcwd()).parent)
     data_dir = parent_dir + '/data'
 
-    fig, axs = plt.subplots(ncols=3, figsize=(16, 8), sharey='row')
+    # dmi_models_files_1 = glob.glob(parent_dir + f'/models2/model_CNN_DMILoss_1_*.pt')
+    # dmi_models_files_1 = sorted(dmi_models_files_1, key=get_noise_rate_from_name)
+    # ce_models_files_1 = glob.glob(parent_dir + f'/models2/model_CNN_CrossEntropyLoss_1_*.pt')
+    # ce_models_files_1 = sorted(ce_models_files_1, key=get_noise_rate_from_name)
+    # dmi_test_acc_1 = eval_models(dmi_models_files_1, data_dir)
+    # ce_test_acc_1 = eval_models(ce_models_files_1, data_dir)
+
+    dmi_models_files_2 = glob.glob(parent_dir + f'/models2/model_CNN_DMILoss_2_*.pt')
+    dmi_models_files_2 = sorted(dmi_models_files_2, key=get_noise_rate_from_name)
+    ce_models_files_2 = glob.glob(parent_dir + f'/models2/model_CNN_CrossEntropyLoss_2_*.pt')
+    ce_models_files_2 = sorted(ce_models_files_2, key=get_noise_rate_from_name)
+    dmi_test_acc_2 = eval_models(dmi_models_files_2, data_dir)
+    ce_test_acc_2 = eval_models(ce_models_files_2, data_dir)
+
+    # dmi_models_files_3 = glob.glob(parent_dir + f'/models2/model_CNN_DMILoss_3_*.pt')
+    # dmi_models_files_3 = sorted(dmi_models_files_3, key=get_noise_rate_from_name)
+    # ce_models_files_3 = glob.glob(parent_dir + f'/models2/model_CNN_CrossEntropyLoss_3_*.pt')
+    # ce_models_files_3 = sorted(ce_models_files_3, key=get_noise_rate_from_name)
+    # dmi_test_acc_3 = eval_models(dmi_models_files_3, data_dir)
+    # ce_test_acc_3 = eval_models(ce_models_files_3, data_dir)
+
+    fig, axs = plt.subplots(ncols=3, figsize=(16, 5), sharey='row')
     noise_values = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 
-    for idx, type_noise in enumerate(['1', '2', '3']):
-        dmi_models_files = glob.glob(parent_dir + f'/models2/model_CNN_DMILoss_{type_noise}_*.pt')
-        dmi_models_files = sorted(dmi_models_files, key=get_noise_rate_from_name)
-        ce_models_files = glob.glob(parent_dir + f'/models2/model_CNN_CrossEntropyLoss_{type_noise}_*.pt')
-        ce_models_files = sorted(ce_models_files, key=get_noise_rate_from_name)
+    SMALL_SIZE = 18
+    MEDIUM_SIZE = 20
+    BIGGER_SIZE = 22
 
-        dmi_test_acc = eval_models(dmi_models_files, data_dir)
-        ce_test_acc = eval_models(ce_models_files, data_dir)
+    plt.rc('font', size=SMALL_SIZE)  # controls default text sizes
+    plt.rc('axes', titlesize=SMALL_SIZE)  # fontsize of the axes title
+    plt.rc('axes', labelsize=MEDIUM_SIZE)  # fontsize of the x and y labels
+    plt.rc('xtick', labelsize=SMALL_SIZE)  # fontsize of the tick labels
+    plt.rc('ytick', labelsize=SMALL_SIZE)  # fontsize of the tick labels
+    plt.rc('legend', fontsize=SMALL_SIZE)  # legend fontsize
+    plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
-        axs[idx].plot(noise_values, dmi_test_acc, label='DMI')
-        axs[idx].plot(noise_values, ce_test_acc, '--', label='CE')
-        axs[idx].set(xlabel='Noise amount ($r$)')
-
+    # axs[0].plot(noise_values, dmi_test_acc_1, '^-', linewidth=3, label='DMI')
+    # axs[0].plot(noise_values, ce_test_acc_1, '*--', linewidth=3, label='CE')
+    axs[0].set(xlabel='Noise amount ($r$)', ylabel='Test Accuracy (%)')
     axs[0].legend()
-    axs[0].set(ylabel='Test Accuracy (%)')
+
+    axs[1].plot(noise_values, dmi_test_acc_2, '^-', linewidth=3, label='DMI')
+    axs[1].plot(noise_values, ce_test_acc_2, '*--', linewidth=3, label='CE')
+    axs[1].set(xlabel='Noise amount ($r$)')
+
+    # axs[2].plot(noise_values, dmi_test_acc_3, '^-', linewidth=3, label='DMI')
+    # axs[2].plot(noise_values, ce_test_acc_3, '*--', linewidth=3, label='CE')
+    axs[2].set(xlabel='Noise amount ($r$)')
+
     plt.show()
-
-
-

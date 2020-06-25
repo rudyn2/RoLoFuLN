@@ -8,7 +8,6 @@ import torchvision.transforms as transforms
 from torch.utils.data.sampler import SubsetRandomSampler
 from torchvision import datasets
 
-
 RANDOM_SEED = 42
 
 
@@ -101,7 +100,7 @@ class DatasetHandler:
 
         return train_sampler, valid_sampler
 
-    def get_loaders(self, val_size: float, train_batch_size: int, val_batch_size: int, test_batch_size ):
+    def get_loaders(self, val_size: float, train_batch_size: int, val_batch_size: int, test_batch_size):
 
         train_sampler, valid_sampler = self._split(val_size, shuffle=True)
 
@@ -133,11 +132,11 @@ class Cifar10Handler(DatasetHandler):
         )
 
         self.with_augment_transform = [
-                transforms.RandomCrop(32, padding=4),
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor(),
-                train_normalizer
-            ]
+            transforms.RandomCrop(32, padding=4),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            train_normalizer
+        ]
 
         self.without_augment_train_transform = [transforms.ToTensor(), train_normalizer]
         self.test_transform = [transforms.ToTensor(), test_normalizer]
@@ -171,7 +170,6 @@ class FashionMnistHandler(DatasetHandler):
 
     def test_transform(self) -> transforms.Compose:
         return transforms.Compose(self.transform_2)
-
 
     def get_noisy_loaders(self, p_noise: float, type_noise: str, val_size: float,
                           train_batch_size: int, val_batch_size: int, test_batch_size: int):
@@ -244,7 +242,7 @@ class Noise1(Noise):
 
     def __init__(self, p_noise: float, bag_label: int):
         super(Noise1, self).__init__(p_noise, bag_label)
-        self.conf_matrix = [[1 - p_noise/2, p_noise/2], [p_noise/2, 1-p_noise/2]]
+        self.conf_matrix = [[1 - p_noise / 2, p_noise / 2], [p_noise / 2, 1 - p_noise / 2]]
 
     def __call__(self, label):
         return int(np.random.choice(2, 1, p=np.array(self.conf_matrix[0 if label == self.bag_label else 1])))
@@ -253,7 +251,7 @@ class Noise1(Noise):
 class Noise2(Noise):
     def __init__(self, p_noise: float, bag_label: int):
         super(Noise2, self).__init__(p_noise, bag_label)
-        self.conf_matrix = [[1-p_noise, p_noise], [0, 1]]
+        self.conf_matrix = [[1 - p_noise, p_noise], [0, 1]]
 
     def __call__(self, label):
         return int(np.random.choice(2, 1, p=np.array(self.conf_matrix[0 if label == self.bag_label else 1])))
@@ -266,4 +264,3 @@ class Noise3(Noise):
 
     def __call__(self, label):
         return int(np.random.choice(2, 1, p=np.array(self.conf_matrix[0 if label == self.bag_label else 1])))
-

@@ -1,12 +1,12 @@
-import torch
-from pathlib import Path
 import os
+from pathlib import Path
+
+import torch
 
 from src.ds_handler import FashionMnistHandler
 from src.losses import DMILoss
 from src.simple_cnn import CNNModel
 from src.solvers import Solver, Summary
-
 
 if __name__ == '__main__':
 
@@ -48,6 +48,7 @@ if __name__ == '__main__':
 
         # train
         solver = Solver(name, PROJECT_DIR, model, optimizer, loss, summ, train_loader, val_loader, test_loader)
-        solver.train(epochs=EPOCHS, verbose=True)
+        solver.pretrain()
+        solver.train(loss)
 
         print(f"Completed training...")

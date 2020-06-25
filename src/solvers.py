@@ -1,10 +1,9 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
-import pickle
-import matplotlib.pyplot as plt
 
 
 class Summary:
@@ -44,7 +43,7 @@ class Summary:
         return ax
 
     def save(self, path: str):
-        torch.save(self, path+f'/{self.name}')
+        torch.save(self, path + f'/{self.name}')
 
     @classmethod
     def load(cls, path_to_summ: str):
@@ -79,29 +78,34 @@ class Solver:
         self.summary = summary
         self.checkpoint_path = f"{project_dir}/models"
 
-    def train(self, epochs: int, verbose: bool = False):
+    def pretrain(self):
+        print("Pretraining using Cross Entropy Loss...")
+        self.train_procedure(torch.nn.CrossEntropyLoss(), epochs=20, verbose=True)
+        print("Pretraining ready!")
+
+    def train(self, loss_fn):
+        self.train_procedure(loss_fn, epochs=True, verbose=True, save_best_model=True)
+
+    def train_procedure(self, loss_fn, epochs: int, verbose: bool = False, save_best_model: bool = False):
         """
         Generic training procedure.
 
+        :param loss_fn:
         :param epochs:
         :param verbose:
-        :return:
+        :param save_best_model:
         """
 
         self.model.to(self.device)
         self.model.train()
 
-        best_valid_acc = 0
         checkpoint = False
-        ce_epochs = int(epochs/2)
-        ce_loss = torch.nn.CrossEntropyLoss()
+        min_val_loss, _ = self.eval(self.model, self.device, self.loss, self.val_loader)
 
         for epoch in range(epochs):
 
             train_losses = []
             n_correct, total_items = 0.0, 0.0
-
-            working_loss = ce_loss if epoch <= ce_epochs else self.loss
 
             for i, data in enumerate(self.train_loader):
                 inputs, labels = data
@@ -111,7 +115,7 @@ class Solver:
                 # region: Optimization step
                 self.optimizer.zero_grad()
                 outputs = self.model(inputs)
-                loss_ = working_loss(outputs, labels)
+                loss_ = loss_fn(outputs, labels)
                 loss_.backward()
                 self.optimizer.step()
                 # endregion
@@ -128,11 +132,11 @@ class Solver:
             # reports
             train_acc = 100 * n_correct / total_items
             train_loss = float(np.mean(train_losses))
-            val_loss, val_acc = self.eval(self.model, self.device, working_loss, self.val_loader)
+            val_loss, val_acc = self.eval(self.model, self.device, loss_fn, self.val_loader)
 
             # checkpoint
-            if val_acc > best_valid_acc:
-                best_valid_acc = val_acc
+            if save_best_model and val_loss < min_val_loss:
+                min_val_loss = val_loss
                 torch.save(dict(epoch=epoch + 1,
                                 model_state_dict=self.model.state_dict(),
                                 optimizer_state_dict=self.optimizer.state_dict(),
@@ -145,11 +149,11 @@ class Solver:
             self.summary.record_metrics(train_loss, train_acc, val_loss, val_acc)
 
             if verbose and (epoch + 1) % 1 == 0:
-                loss_tag = working_loss.__class__.__name__
+                loss_tag = loss_fn.__class__.__name__
                 print(f"Epoch: {epoch + 1} ({loss_tag})|| Train avg loss: {train_loss:.4f} ||"
                       f"Train acc.: {train_acc:.3f} || Val avg. loss: {val_loss:.4f} "
                       f"|| Val avg. acc: {val_acc:.4f}")
-                if checkpoint:
+                if save_best_model and checkpoint:
                     checkpoint = False
                     print(f"Model saved in epoch {epoch + 1} with val acc: {val_acc}.")
 
@@ -177,4 +181,3 @@ class Solver:
         acc = 100. * correct / total_items
         loss = np.mean(losses)
         return float(loss), float(acc)
-
